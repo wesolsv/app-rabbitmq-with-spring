@@ -17,12 +17,16 @@ public class RabbitMQConfiguration {
     private String exchangePropostaPendente;
     @Value("${rabbitmq.proposta-concluida.exchange}")
     private String exchangePropostaConcluida;
+    @Value("${rabbitmq.proposta-pendente-dlq.exchange}")
+    private String exchangePropostaPendenteDql;
 
 
     /*CRIA FILAS*/
     @Bean
     public Queue criarFilaPropostaPendenteMsAnaliseCredito(){
-        return QueueBuilder.durable("proposta-pendente.ms-analise-credito").build();
+        return QueueBuilder.durable("proposta-pendente.ms-analise-credito")
+                .deadLetterExchange(exchangePropostaPendenteDql)
+                .build();
     }
     @Bean
     public Queue criarFilaPropostaPendenteMsNotificacao(){
@@ -36,12 +40,16 @@ public class RabbitMQConfiguration {
     public Queue criarFilaPropostaConcluidaMsNotificacao(){
         return QueueBuilder.durable("proposta-concluida.ms-notificacao").build();
     }
+    @Bean
+    public Queue criarFilaPropostaPendenteDlq(){
+        return QueueBuilder.durable("proposta-pendente.dlq").build();
+    }
 
 
     /*CRIA O ADMIN*/
     @Bean
     public RabbitAdmin criarRabbitAdmin(ConnectionFactory connectionFactory){
-        return new RabbitAdmin((connectionFactory));
+        return new RabbitAdmin(connectionFactory);
     }
 
     @Bean
@@ -57,6 +65,10 @@ public class RabbitMQConfiguration {
     @Bean
     public FanoutExchange criarFanoutExchangePropostaConcluida(){
         return ExchangeBuilder.fanoutExchange(exchangePropostaConcluida).build();
+    }
+    @Bean
+    public FanoutExchange criarFanoutDeadLetterExchange(){
+        return ExchangeBuilder.fanoutExchange(exchangePropostaPendenteDql).build();
     }
 
     /*CRIAR BINDS*/
@@ -79,11 +91,16 @@ public class RabbitMQConfiguration {
                 .to(criarFanoutExchangePropostaConcluida());
     }
 
-
     @Bean
     public Binding criarBindingPropostaConcluidaMsNotificacao(){
         return BindingBuilder.bind(criarFilaPropostaConcluidaMsNotificacao())
                 .to(criarFanoutExchangePropostaConcluida());
+    }
+
+    @Bean
+    public Binding criarBindingPropostaPendenteDlq(){
+        return BindingBuilder.bind(criarFilaPropostaPendenteDlq())
+                .to(criarFanoutDeadLetterExchange());
     }
 
     @Bean
